@@ -1,0 +1,29 @@
+# Personal data and local runtime state
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/*.pid
+data/*.log
+data/launcher-error.log
+data/letter-worker-error.log
+
+# Local transfer archives and backup copies
+*.zip
+backups/
+_transfer_stage_*/
+
+# Python and editor files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.vscode/
+
+# Local configuration and secrets
+.env
+.env.*
+career-bot-location.txt
+
+# Generated user-specific exports
+PERSONAL_PROFILE_*.md

@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Personal Career Bot</title>
+    <link rel="stylesheet" href="/styles.css?v=0.19.4" />
+  </head>
+  <body>
+    <section id="auth-screen" class="auth-screen" aria-live="polite" hidden>
+      <div class="auth-panel">
+        <div class="auth-brand">CAREER BOT</div>
+        <div id="auth-login" hidden>
+          <p class="eyebrow">PRIVATE ACCESS</p>
+          <h1>Вход</h1>
+          <p class="auth-copy">У каждого пользователя свой профиль, вакансии и воронка.</p>
+          <form id="login-form" class="auth-form">
+            <label>Логин<input name="username" autocomplete="username" required /></label>
+            <label>Пароль<input name="password" type="password" autocomplete="current-password" required /></label>
+            <button type="submit">Войти</button>
+          </form>
+        </div>
+        <div id="auth-setup" hidden>
+          <p class="eyebrow">FIRST RUN</p>
+          <h1>Создание пользователей</h1>
+          <p class="auth-copy">Владелец получает AI без внутреннего лимита. Тестировщик не может расходовать API-токены.</p>
+          <form id="setup-form" class="auth-form setup-form">
+            <fieldset>
+              <legend>Владелец</legend>
+              <label>Имя<input name="owner_name" placeholder="Как к вам обращаться" required /></label>
+              <label>Логин<input name="owner_username" autocomplete="username" required /></label>
+              <label>Пароль<input name="owner_password" type="password" minlength="8" autocomplete="new-password" required /></label>
+            </fieldset>
+            <fieldset>
+              <legend>Тестировщик</legend>
+              <label>Имя<input name="tester_name" placeholder="Имя друга" required /></label>
+              <label>Логин<input name="tester_username" autocomplete="username" required /></label>
+              <label>Пароль<input name="tester_password" type="password" minlength="8" autocomplete="new-password" required /></label>
+            </fieldset>
+            <button type="submit">Создать и войти</button>
+          </form>
+        </div>
+        <div id="auth-error" class="auth-error" hidden></div>
+      </div>
+    </section>
+    <header class="topbar">
+      <div>
+        <h1>CAREER<br />BOT</h1>
+        <p>Персональная система поиска работы</p>
+      </div>
+      <div class="topbar-actions">
+        <div class="safe-mode" title="MVP не отправляет отклики автоматически">
+          <span class="dot"></span>
+          Safe Mode
+        </div>
+        <div id="user-menu" class="user-menu" hidden>
+          <div><strong id="current-user-name"></strong><span id="current-user-role"></span></div>
+          <button id="logout" class="icon-action" type="button" title="Выйти" aria-label="Выйти">↪</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <button class="nav active" data-view="dashboard">Сегодня</button>
+        <button class="nav" data-view="profile">Профиль</button>
+        <button class="nav" data-view="search">Сценарии</button>
+        <button class="nav" data-view="vacancies">Вакансии</button>
+        <details class="more-nav">
+          <summary>Еще</summary>
+          <button class="nav owner-only" data-view="ai-settings">ИИ</button>
+          <button class="nav" data-view="import">Импорт</button>
+          <button class="nav" data-view="architecture">Архитектура</button>
+        </details>
+        <div id="app-version" class="app-version" title="Версия запущенного Career Bot">Career Bot · v...</div>
+      </aside>
+
+      <section class="content">
+        <section id="dashboard" class="view active">
+          <div class="section-head">
+            <div><p class="eyebrow">РАБОЧИЙ СТОЛ</p><h2>Сегодня</h2></div>
+            <button id="refresh-dashboard" class="secondary">Обновить</button>
+          </div>
+          <div class="action-board">
+            <section>
+              <span class="eyebrow">ПОИСК</span>
+              <h3>Собрать новые вакансии</h3>
+              <p id="search-summary">Загружаю состояние сценариев...</p>
+              <div class="section-actions">
+                <button id="start-browser-assist">Открыть Browser Assist</button>
+              </div>
+            </section>
+            <section>
+              <span class="eyebrow">ПИСЬМА</span>
+              <h3>Поставить генерацию в очередь</h3>
+              <div class="batch-controls">
+                <label>Скоринг от<input id="batch-min-score" type="number" min="65" max="100" value="65" /></label>
+                <label>Выбор<select id="batch-scope"><option value="score">Все подходящие</option><option value="liked">Только отмеченные «Подходит»</option></select></label>
+              </div>
+              <button id="generate-batch-letters">Подготовить до 100 писем</button>
+              <div id="letter-batch-progress" class="letter-batch-progress" hidden aria-live="polite"></div>
+            </section>
+          </div>
+          <h3 class="subsection-title">Воронка</h3>
+          <div id="funnel" class="funnel"></div>
+          <div class="note">
+            Автоматическая отправка отключена. Бот помогает подготовить решение, а действие остается за вами.
+          </div>
+        </section>
+
+        <section id="profile" class="view">
+          <div class="section-head">
+            <div><h2>Карьерный профиль</h2><p id="hh-import-status" class="profile-import-status">Профиль hh.ru еще не импортирован</p></div>
+            <button id="save-profile">Сохранить и пересчитать</button>
+          </div>
+          <form id="profile-form" class="form-grid">
+            <label>Имя<input name="name" placeholder="Например, Виталий" /></label>
+            <div class="profile-field"><span class="field-label">Целевые роли</span><div class="tag-picker" data-field="target_roles" data-source="roles"><div class="tag-chips"></div><div class="tag-entry"><input class="tag-search" placeholder="Начните вводить: Project..." autocomplete="off" /><button type="button" class="tag-add" title="Добавить роль">+</button></div><div class="tag-suggestions"></div><input type="hidden" name="target_roles" /></div><span class="field-hint">Названия ролей соответствуют вакансиям на hh.ru</span></div>
+            <div class="profile-field profile-location-field">
+              <span class="field-label">Основной регион</span>
+              <select id="profile-area-primary">
+                <option value="Москва" selected>Москва</option>
+                <option value="Санкт-Петербург">Санкт-Петербург</option>
+                <option value="Новосибирск">Новосибирск</option>
+                <option value="Екатеринбург">Екатеринбург</option>
+                <option value="Казань">Казань</option>
+                <option value="Нижний Новгород">Нижний Новгород</option>
+                <option value="Краснодар">Краснодар</option>
+                <option value="Ростов-на-Дону">Ростов-на-Дону</option>
+                <option value="Самара">Самара</option>
+                <option value="Уфа">Уфа</option>
+                <option value="Красноярск">Красноярск</option>
+                <option value="Омск">Омск</option>
+                <option value="Пермь">Пермь</option>
+                <option value="Челябинск">Челябинск</option>
+                <option value="Россия">Вся Россия</option>
+              </select>
+              <button id="toggle-profile-area-detail" class="region-detail-toggle" type="button">Уточнить</button>
+              <div id="profile-area-detail" class="profile-area-detail" hidden>
+                <span class="field-label">Дополнительные города и районы</span>
+                <div class="tag-picker" data-field="locations" data-source="areas"><div class="tag-chips"></div><div class="tag-entry"><input class="tag-search" placeholder="Введите город, область или район" autocomplete="off" /><button type="button" class="tag-add" title="Добавить локацию">+</button></div><div class="tag-suggestions"></div><input type="hidden" name="locations" /></div>
+                <span id="area-catalog-status" class="field-hint">Загружаю справочник регионов hh.ru...</span>
+              </div>
+            </div>
+            <label>Ожидания по доходу<input name="salary_expectation" placeholder="Например, от 250 000 ₽" /></label>
+            <label>Опыт работы, лет<input name="experience_years" type="number" min="0" max="60" step="0.5" placeholder="Например, 2.5" /></label>
+            <div class="profile-field"><span class="field-label">Формат работы</span><div class="tag-picker" data-field="work_format" data-source="work_formats"><div class="tag-chips"></div><div class="tag-entry"><input class="tag-search" placeholder="Выберите формат" autocomplete="off" /><button type="button" class="tag-add" title="Добавить формат">+</button></div><div class="tag-suggestions"></div><input type="hidden" name="work_format" /></div></div>
+            <div class="profile-field"><span class="field-label">Навыки</span><div class="tag-picker" data-field="skills" data-source="skills"><div class="tag-chips"></div><div class="tag-entry"><input class="tag-search" placeholder="Например: Excel, SQL, Jira" autocomplete="off" /><button type="button" class="tag-add" title="Добавить навыки">+</button></div><div class="tag-suggestions"></div><input type="hidden" name="skills" /></div><span class="field-hint">Можно перечислить несколько навыков через запятую</span></div>
+            <div class="profile-field"><span class="field-label">Сильные стороны</span><div class="tag-picker" data-field="strengths" data-source="strengths"><div class="tag-chips"></div><div class="tag-entry"><input class="tag-search" placeholder="Например, лидерство" autocomplete="off" /><button type="button" class="tag-add" title="Добавить сильную сторону">+</button></div><div class="tag-suggestions"></div><input type="hidden" name="strengths" /></div></div>
+            <div class="profile-field"><span class="field-label">Ограничения</span><div class="tag-picker" data-field="constraints" data-source="constraints"><div class="tag-chips"></div><div class="tag-entry"><input class="tag-search" placeholder="Например, без командировок" autocomplete="off" /><button type="button" class="tag-add" title="Добавить ограничение">+</button></div><div class="tag-suggestions"></div><input type="hidden" name="constraints" /></div></div>
+            <label class="wide">Опыт работы<textarea name="work_history" class="large" placeholder="Должности, компании, задачи и результаты"></textarea></label>
+            <label class="wide">Резюме на hh.ru для отклика<input name="hh_resume_title" placeholder="Название сохраненного резюме на hh.ru" /><span class="field-hint">Расширение попытается выбрать это резюме в форме отклика. Локальный PDF браузер подставить не может.</span></label>
+            <label class="wide">Текст резюме<textarea name="resume_text" class="large" placeholder="Вставьте резюме или карьерное summary"></textarea></label>
+            <div class="resume-upload wide">
+              <div><span class="field-label">PDF-резюме для отклика</span><span id="resume-file-status" class="field-hint">PDF не загружен</span></div>
+              <label class="file-action">Выбрать PDF<input id="resume-pdf" type="file" accept="application/pdf,.pdf" /></label>
+            </div>
+            <details class="strategy-panel wide" open>
+              <summary>Моя стратегия поиска</summary>
+              <p>Эти предпочтения влияют на отбор и скоринг вакансий, но не подменяют факты резюме.</p>
+              <label>Приоритетные роли<textarea name="strategy_roles" rows="3"></textarea></label>
+              <label>Интересные сферы<textarea name="strategy_industries" rows="3"></textarea></label>
+              <label>Что делает вакансию перспективной<textarea name="strategy_priorities" rows="3"></textarea></label>
+              <label>Стоп-факторы<textarea name="strategy_hard_stops" rows="3"></textarea></label>
+            </details>
+          </form>
+        </section>
+
+        <section id="search" class="view">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">SEARCH / 01</p>
+              <h2>Сценарии поиска</h2>
+            </div>
+            <div class="section-actions">
+              <button id="setup-hh-button" class="secondary">Установить кнопку на hh.ru</button>
+              <button id="run-hh-search" class="secondary">Проверить на hh.ru</button>
+            </div>
+          </div>
+          <section class="recommendation-band">
+            <div>
+              <span class="recommendation-index">AUTO</span>
+              <h3>Подбор по вашему профилю</h3>
+              <p>Подбор использует реальные названия управленческих вакансий с hh.ru. Навыки влияют на скоринг и письмо, но не становятся поисковым запросом.</p>
+            </div>
+            <button id="generate-search-suggestions">Взять роли из профиля</button>
+          </section>
+          <section class="intent-builder">
+            <div>
+              <span class="eyebrow">ЛОКАЛЬНЫЙ ИИ</span>
+              <h3>Опишите работу, которую хотите найти</h3>
+              <p>Можно писать обычным языком: задачи, сфера, формат, что нравится и чего точно не хочется. Ollama сопоставит описание с профилем и названиями уже известных вакансий.</p>
+            </div>
+            <textarea id="search-intent" rows="5" maxlength="4000" placeholder="Например: хочу развивать цифровые продукты, общаться с командой разработки и работать с аналитикой. Интересны junior/middle роли без холодных продаж, желательно гибридный формат."></textarea>
+            <div class="intent-actions">
+              <button id="create-intent-scenarios" type="button">Создать сценарии</button>
+              <span id="intent-status">Будет создано от 2 до 6 поисковых сценариев.</span>
+            </div>
+          </section>
+          <div class="search-grid">
+            <label>Поисковый сценарий
+              <select id="hh-suggestion">
+                <option value="">Выберите из профиля</option>
+              </select>
+            </label>
+            <label>Запрос
+              <select id="hh-text">
+                <option value="">Сначала соберите подбор</option>
+              </select>
+            </label>
+            <div class="region-control">
+              <label>Регион
+                <select id="hh-area-primary">
+                  <option value="1" selected>Москва</option>
+                  <option value="2">Санкт-Петербург</option>
+                  <option value="4">Новосибирск</option>
+                  <option value="3">Екатеринбург</option>
+                  <option value="88">Казань</option>
+                  <option value="66">Нижний Новгород</option>
+                  <option value="53">Краснодар</option>
+                  <option value="76">Ростов-на-Дону</option>
+                  <option value="78">Самара</option>
+                  <option value="99">Уфа</option>
+                  <option value="54">Красноярск</option>
+                  <option value="68">Омск</option>
+                  <option value="72">Пермь</option>
+                  <option value="104">Челябинск</option>
+                  <option value="113">Вся Россия</option>
+                </select>
+              </label>
+              <button id="toggle-area-detail" class="region-detail-toggle" type="button">Уточнить</button>
+              <label id="area-detail" class="region-detail" hidden>Город или район
+                <input id="hh-area-name" list="hh-area-list" placeholder="Начните вводить название" autocomplete="off" />
+                <datalist id="hh-area-list"></datalist>
+              </label>
+              <input id="hh-area" type="hidden" value="1" />
+            </div>
+            <label>Зарплата от<input id="hh-salary" type="number" min="0" step="1000" placeholder="250000" /></label>
+            <label>Свежесть вакансий
+              <select id="hh-period">
+                <option value="1">За сутки</option>
+                <option value="3">За 3 дня</option>
+                <option value="7" selected>За неделю</option>
+                <option value="30">За месяц</option>
+              </select>
+            </label>
+            <label>Формат работы
+              <select id="hh-work-format">
+                <option value="">Любой формат</option>
+                <option value="HYBRID">Гибрид</option>
+                <option value="ON_SITE">На месте у работодателя</option>
+                <option value="REMOTE">Удаленная работа</option>
+              </select>
+            </label>
+            <label class="checkline"><input id="hh-only-salary" type="checkbox" /> Только с зарплатой</label>
+          </div>
+          <div id="suggestion-reason" class="selection-caption">Подбор еще не сформирован.</div>
+          <div class="scenario-actions">
+            <button id="save-search-scenarios">Сохранить сценарии</button>
+            <button id="run-browser-assist">Открыть Browser Assist</button>
+          </div>
+          <div id="scenario-list" class="scenario-list"></div>
+          <div class="note">
+            Browser Assist открывает обычную авторизованную выдачу hh.ru. Расширение собирает видимые вакансии, но при проверке или CAPTCHA останавливается до вашего ручного подтверждения.
+          </div>
+          <details class="api-advanced">
+            <summary>Дополнительно: прямой API hh.ru</summary>
+            <p>Запасной технический режим. Он может быть недоступен из-за сетевых ограничений или политики hh.ru.</p>
+            <div class="api-advanced-fields">
+              <label>Email для User-Agent<input id="hh-contact" type="email" placeholder="name@example.ru" autocomplete="email" /></label>
+              <label>Вакансий на сценарий<input id="hh-result-limit" type="number" min="10" max="200" step="10" value="50" /></label>
+            </div>
+            <div class="section-actions">
+              <button id="run-api-search" class="secondary">Запустить API</button>
+              <button id="stop-api-search" class="secondary">Остановить API</button>
+            </div>
+            <div id="search-run-list" class="run-list"></div>
+          </details>
+        </section>
+
+        <section id="import" class="view">
+          <div class="section-head">
+            <h2>Импорт вакансий</h2>
+            <button id="import-vacancies">Импортировать</button>
+          </div>
+          <div class="import-tools">
+            <label>Источник<input id="import-source" value="manual-import" /></label>
+            <label>Формат
+              <select id="import-format">
+                <option value="auto">Авто</option>
+                <option value="json">JSON</option>
+                <option value="csv">CSV</option>
+                <option value="text">Текст</option>
+              </select>
+            </label>
+          </div>
+          <textarea id="import-text" class="import-box" placeholder="Вставьте JSON, CSV или текст вакансии"></textarea>
+          <div class="note">
+            Для hh.ru используйте ручной импорт, экспорт или официально разрешенные способы получения данных.
+          </div>
+        </section>
+
+        <section id="vacancies" class="view">
+          <div class="section-head">
+            <h2>Вакансии</h2>
+            <div class="section-actions">
+              <button id="approve-selected-letters" class="secondary">Подтвердить выбранные письма</button>
+              <button id="approve-all-letters" class="secondary">Одобрить все подготовленные</button>
+              <label>До <input id="batch-apply-limit" type="number" min="1" max="40" value="40" /></label>
+              <button id="start-batch-apply" class="secondary">Отправить простые отклики</button>
+              <button id="pause-batch-apply" class="secondary" hidden>Остановить пакет</button>
+              <button id="resume-batch-apply" class="secondary" hidden>Продолжить нетронутые</button>
+              <button id="add-vacancy" class="secondary">Добавить вручную</button>
+              <button id="delete-all-vacancies" class="danger">Очистить все</button>
+            </div>
+          </div>
+          <div id="apply-batch-progress" class="letter-batch-progress" hidden aria-live="polite"></div>
+          <p>Автоотправка временно отключена. Для проверки откройте карточку вакансии и нажмите «Диагностика без отправки».</p>
+          <pre id="apply-diagnostic-report" hidden style="white-space:pre-wrap;max-height:320px;overflow:auto"></pre>
+          <div class="filters">
+            <input id="filter-q" type="search" placeholder="Поиск" autocomplete="off" />
+            <select id="filter-status">
+              <option value="">Все статусы</option>
+            </select>
+            <select id="filter-eligibility">
+              <option value="">Все соответствия</option>
+              <option value="match">Подходит</option>
+              <option value="review">Нужно проверить</option>
+              <option value="mismatch">Не подходит</option>
+            </select>
+            <input id="filter-min-score" type="number" min="0" max="100" placeholder="Мин. скоринг" />
+            <input id="filter-source" type="search" placeholder="Источник" autocomplete="off" />
+            <select id="filter-sort">
+              <option value="score">Сначала высокий скоринг</option>
+              <option value="letter_new">Сначала новые письма</option>
+              <option value="letter_old">Сначала старые письма</option>
+            </select>
+          </div>
+          <div id="filter-feedback" class="filter-feedback" role="status" aria-live="polite">Загружаю вакансии...</div>
+          <div class="vacancy-shell">
+            <div id="vacancy-list" class="vacancy-list"></div>
+            <article id="vacancy-detail" class="detail empty">Выберите вакансию</article>
+          </div>
+        </section>
+
+        <section id="ai-settings" class="view owner-only">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">OWNER / AI</p>
+              <h2>Настройки ИИ</h2>
+            </div>
+            <span id="ai-connection-status" class="connection-status">Не подключено</span>
+          </div>
+          <div class="ai-settings-layout">
+            <form id="ai-settings-form" class="ai-settings-form">
+              <label>Провайдер
+                <select id="ai-provider" name="provider">
+                  <option value="ollama">Ollama · локально</option>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai">OpenAI API</option>
+                </select>
+              </label>
+              <label>Модель
+                <input name="model" list="ai-model-list" value="gpt-4o-mini" autocomplete="off" />
+                <datalist id="ai-model-list">
+                  <option value="qwen3.5:9b"></option>
+                  <option value="qwen3:8b"></option>
+                  <option value="qwen3:4b"></option>
+                  <option value="gemini-3.1-flash-lite"></option>
+                  <option value="gemini-3.5-flash"></option>
+                  <option value="gemini-2.5-flash-lite"></option>
+                  <option value="gpt-4o-mini"></option>
+                  <option value="gpt-5-mini"></option>
+                </datalist>
+              </label>
+              <label id="ai-key-field"><span id="ai-key-label">API-ключ</span>
+                <input name="api_key" type="password" autocomplete="off" placeholder="Вставьте новый ключ, чтобы подключить или заменить" />
+              </label>
+              <div class="ai-settings-actions">
+                <button type="submit">Сохранить подключение</button>
+                <button id="clear-ai-key" type="button" class="secondary">Удалить ключ</button>
+              </div>
+              <p id="ai-provider-hint" class="field-hint"></p>
+              <p class="field-hint">Ключ шифруется средствами Windows для этого компьютера. Он никогда не показывается обратно в браузере и недоступен тестировщику через Career Bot.</p>
+            </form>
+            <div class="ai-usage">
+              <span class="eyebrow">ИСПОЛЬЗОВАНИЕ</span>
+              <strong id="ai-generation-count">0</strong>
+              <p>сгенерированных писем</p>
+              <dl>
+                <div><dt>Входящие токены</dt><dd id="ai-input-tokens">0</dd></div>
+                <div><dt>Исходящие токены</dt><dd id="ai-output-tokens">0</dd></div>
+                <div><dt>Всего</dt><dd id="ai-total-tokens">0</dd></div>
+              </dl>
+            </div>
+          </div>
+          <div class="note">Выбранному AI-провайдеру отправляются текст вакансии и карьерные факты без очевидных контактных данных. Перед отправкой отклика письмо всегда остается на ручной проверке.</div>
+        </section>
+
+        <section id="architecture" class="view">
+          <div class="section-head">
+            <h2>Расширения</h2>
+          </div>
+          <div class="architecture">
+            <div>
+              <h3>Сейчас</h3>
+              <p>Локальная база, ручной импорт, объяснимый скоринг, генерация писем, Safe Mode.</p>
+            </div>
+            <div>
+              <h3>Smart Auto позже</h3>
+              <p>Очередь кандидатов, лимиты, журнал действий, ручные политики подтверждения, только разрешенные источники.</p>
+            </div>
+            <div>
+              <h3>Telegram позже</h3>
+              <p>Уведомления о сильных вакансиях, кнопки подтверждения, ежедневный отчет по воронке.</p>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="manual-dialog">
+      <form method="dialog" id="manual-form">
+        <h2>Новая вакансия</h2>
+        <label>Название<input name="title" required /></label>
+        <label>Компания<input name="company" /></label>
+        <label>Локация<input name="location" /></label>
+        <label>Зарплата<input name="salary" /></label>
+        <label>Ссылка<input name="url" /></label>
+        <label>Описание<textarea name="description" required></textarea></label>
+        <div class="dialog-actions">
+          <button value="cancel" class="secondary">Отмена</button>
+          <button id="save-manual" value="default">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast"></div>
+    <script src="/app.js?v=0.20.5"></script>
+  </body>
+</html>
